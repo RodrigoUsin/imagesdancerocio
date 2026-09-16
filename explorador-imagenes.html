@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explorador de imágenes — Rocío Danza</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF6EF;
+    --surface: #FFFFFF;
+    --border: #E7DCC9;
+    --ink: #2A2118;
+    --ink-soft: #786A5A;
+    --plum: #4B2142;
+    --plum-dark: #341530;
+    --gold: #A97324;
+    --gold-soft: #F1E3C8;
+    --danger: #A23B3B;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-pill: 999px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  #app {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .title-block h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 1.7rem;
+    margin: 0 0 0.15rem;
+    color: var(--plum-dark);
+  }
+
+  #subtitle {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    min-height: 1.2em;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  #searchInput {
+    width: 220px;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+
+  #searchInput:focus-visible,
+  button:focus-visible,
+  .breadcrumb button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+  .icon-btn:hover { background: var(--gold-soft); }
+
+  nav.breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 1.1rem 0 1.3rem;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+  .breadcrumb button {
+    background: none;
+    border: none;
+    font: inherit;
+    color: var(--plum);
+    cursor: pointer;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+  }
+  .breadcrumb button:hover { text-decoration: underline; }
+  .breadcrumb .current { color: var(--ink); font-weight: 600; }
+  .breadcrumb .sep { color: var(--border); }
+
+  #status {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+  #status.error { color: var(--danger); }
+  #status.hidden { display: none; }
+
+  .folder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1.4rem;
+  }
+  .folder-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.65rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink);
+    transition: border-color 0.15s ease;
+  }
+  .folder-row:hover { border-color: var(--gold); }
+  .folder-row .emoji { font-size: 1.1rem; }
+  .folder-row .name { flex: 1; font-weight: 500; }
+  .folder-row .count { color: var(--ink-soft); font-size: 0.85rem; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card .thumb-wrap {
+    aspect-ratio: 1 / 1;
+    background: var(--gold-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .card .meta {
+    padding: 0.6rem 0.7rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .card .filename {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .card .path-hint {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    opacity: 0.75;
+  }
+  .copy-btn {
+    align-self: flex-start;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--plum);
+    background: var(--surface);
+    color: var(--plum);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .copy-btn:hover { background: var(--plum); color: #fff; }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.6rem;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--plum-dark);
+    color: #fff;
+    padding: 0.6rem 1.1rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 20, 15, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 20;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 360px;
+  }
+  .modal-box h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.15rem;
+    margin: 0 0 0.3rem;
+    color: var(--plum-dark);
+  }
+  .modal-box p.hint {
+    margin: 0 0 1.1rem;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+  .field { margin-bottom: 0.9rem; }
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-bottom: 0.3rem;
+  }
+  .field input {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    color: var(--ink);
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1.2rem;
+  }
+  .btn {
+    padding: 0.55rem 1.1rem;
+    border-radius: var(--radius-pill);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--plum); color: #fff; }
+  .btn-primary:hover { background: var(--plum-dark); }
+  .btn-secondary { background: none; border-color: var(--border); color: var(--ink-soft); }
+  .btn-secondary:hover { border-color: var(--ink-soft); }
+
+  @media (max-width: 560px) {
+    #searchInput { width: 150px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="title-block">
+        <h1>Explorador de imágenes</h1>
+        <p id="subtitle">Cargando…</p>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Buscar por nombre…" aria-label="Buscar imágenes por nombre">
+        <button class="icon-btn" id="refreshBtn" title="Actualizar listado" aria-label="Actualizar listado">↻</button>
+        <button class="icon-btn" id="settingsBtn" title="Configurar repositorio" aria-label="Configurar repositorio">⚙</button>
+      </div>
+    </header>
+
+    <nav class="breadcrumb" id="breadcrumb"></nav>
+
+    <div id="status"></div>
+    <div class="folder-list" id="folderList"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="modal-overlay hidden" id="settingsModal">
+    <div class="modal-box">
+      <h2>Configurar repositorio</h2>
+      <p class="hint">Indica de dónde vienen las imágenes. Solo tienes que hacerlo una vez: el navegador lo recuerda.</p>
+      <div class="field">
+        <label for="ownerInput">Usuario u organización de GitHub</label>
+        <input id="ownerInput" placeholder="ej: RodrigoUsin">
+      </div>
+      <div class="field">
+        <label for="repoInput">Nombre del repositorio</label>
+        <input id="repoInput" placeholder="ej: danza-imagenes">
+      </div>
+      <div class="field">
+        <label for="branchInput">Rama</label>
+        <input id="branchInput" placeholder="main">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelSettings">Cancelar</button>
+        <button class="btn btn-primary" id="saveSettings">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'imgExplorerConfig';
+  const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'];
+
+  let config = null;
+  let fileTreeRoot = null;
+  let currentPath = [];
+  let searchQuery = '';
+
+  const el = {
+    subtitle: document.getElementById('subtitle'),
+    searchInput: document.getElementById('searchInput'),
+    refreshBtn: document.getElementById('refreshBtn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    breadcrumb: document.getElementById('breadcrumb'),
+    status: document.getElementById('status'),
+    folderList: document.getElementById('folderList'),
+    grid: document.getElementById('grid'),
+    modal: document.getElementById('settingsModal'),
+    ownerInput: document.getElementById('ownerInput'),
+    repoInput: document.getElementById('repoInput'),
+    branchInput: document.getElementById('branchInput'),
+    saveSettings: document.getElementById('saveSettings'),
+    cancelSettings: document.getElementById('cancelSettings'),
+    toast: document.getElementById('toast'),
+  };
+
+  // ---------- Configuración (se guarda en este navegador, en local) ----------
+  function loadConfig() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+    catch (e) { return null; }
+  }
+  function saveConfigToStorage(cfg) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  }
+
+  function openSettings() {
+    el.ownerInput.value = config ? config.owner : '';
+    el.repoInput.value = config ? config.repo : '';
+    el.branchInput.value = config ? config.branch : 'main';
+    el.modal.classList.remove('hidden');
+    el.ownerInput.focus();
+  }
+  function closeSettings() {
+    el.modal.classList.add('hidden');
+  }
+
+  el.settingsBtn.addEventListener('click', openSettings);
+  el.cancelSettings.addEventListener('click', () => {
+    if (config) closeSettings();
+  });
+  el.saveSettings.addEventListener('click', () => {
+    const owner = el.ownerInput.value.trim();
+    const repo = el.repoInput.value.trim();
+    const branch = el.branchInput.value.trim() || 'main';
+    if (!owner || !repo) return;
+    config = { owner, repo, branch };
+    saveConfigToStorage(config);
+    closeSettings();
+    currentPath = [];
+    searchQuery = '';
+    el.searchInput.value = '';
+    loadRepo();
+  });
+
+  // ---------- Carga del repositorio ----------
+  // Se pide el árbol completo del repo en UNA sola llamada (git trees API,
+  // recursive=1) en vez de ir carpeta a carpeta: así la búsqueda por nombre
+  // puede mirar en todas las carpetas sin hacer más peticiones a GitHub.
+  async function fetchImagePaths() {
+    const { owner, repo, branch } = config;
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('No se encontró ese repositorio. Revisa el usuario, el nombre y la rama.');
+      if (res.status === 403) throw new Error('GitHub ha limitado las peticiones por ahora. Espera unos minutos y pulsa actualizar.');
+      throw new Error('No se pudo cargar el repositorio (código ' + res.status + ').');
+    }
+    const data = await res.json();
+    return (data.tree || [])
+      .filter(item => item.type === 'blob' && IMAGE_EXTENSIONS.includes((item.path.split('.').pop() || '').toLowerCase()))
+      .map(item => item.path);
+  }
+
+  function buildFolderTree(paths) {
+    const root = { folders: {}, files: [] };
+    for (const path of paths) {
+      const parts = path.split('/');
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!node.folders[part]) node.folders[part] = { folders: {}, files: [] };
+        node = node.folders[part];
+      }
+      node.files.push({ name: parts[parts.length - 1], path });
+    }
+    return root;
+  }
+
+  function getNodeAtPath(root, pathArr) {
+    let node = root;
+    for (const part of pathArr) {
+      node = node.folders[part];
+      if (!node) return null;
+    }
+    return node;
+  }
+
+  function countAll(node) {
+    let count = node.files.length;
+    for (const key in node.folders) count += countAll(node.folders[key]);
+    return count;
+  }
+
+  async function loadRepo() {
+    showStatus('Cargando imágenes…');
+    el.folderList.innerHTML = '';
+    el.grid.innerHTML = '';
+    try {
+      const paths = await fetchImagePaths();
+      fileTreeRoot = buildFolderTree(paths);
+      const total = countAll(fileTreeRoot);
+      el.subtitle.textContent = `${config.owner}/${config.repo} · ${total} imagen${total === 1 ? '' : 'es'}`;
+      hideStatus();
+      render();
+    } catch (err) {
+      showStatus(err.message, true);
+      el.subtitle.textContent = 'No se pudo cargar el repositorio';
+    }
+  }
+
+  // ---------- Enlaces ----------
+  // Se usa jsDelivr (CDN pensado para servir archivos de GitHub) en vez de
+  // raw.githubusercontent.com: es más rápido, no tiene los límites de
+  // peticiones de GitHub y es el enlace recomendado para usar en una web.
+  function linkFor(path) {
+    return `https://cdn.jsdelivr.net/gh/${config.owner}/${config.repo}@${config.branch}/${path}`;
+  }
+
+  // ---------- Búsqueda ----------
+  function normalize(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  function searchAll(node, query, pathPrefix, results) {
+    for (const file of node.files) {
+      if (normalize(file.name).includes(query)) results.push(file);
+    }
+    for (const key in node.folders) {
+      searchAll(node.folders[key], query, pathPrefix, results);
+    }
+  }
+
+  // ---------- Render ----------
+  function showStatus(message, isError) {
+    el.status.textContent = message;
+    el.status.classList.remove('hidden');
+    el.status.classList.toggle('error', !!isError);
+  }
+  function hideStatus() {
+    el.status.classList.add('hidden');
+  }
+
+  function renderBreadcrumb() {
+    el.breadcrumb.innerHTML = '';
+    const homeBtn = document.createElement('button');
+    homeBtn.textContent = 'Inicio';
+    homeBtn.addEventListener('click', () => { searchQuery = ''; el.searchInput.value = ''; currentPath = []; render(); });
+    el.breadcrumb.appendChild(homeBtn);
+
+    if (searchQuery.trim()) {
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = ' / ';
+      el.breadcrumb.appendChild(sep);
+      const span = document.createElement('span');
+      span.className = 'current';
+      span.textContent = `Resultados para "${searchQuery.trim()}"`;
+      el.breadcrumb.appendChild(span);
+      return;
+    }
+
+    currentPath.forEach((part, idx) => {
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = ' / ';
+      el.breadcrumb.appendChild(sep);
+
+      if (idx === currentPath.length - 1) {
+        const span = document.createElement('span');
+        span.className = 'current';
+        span.textContent = part;
+        el.breadcrumb.appendChild(span);
+      } else {
+        const btn = document.createElement('button');
+        btn.textContent = part;
+        btn.addEventListener('click', () => { currentPath = currentPath.slice(0, idx + 1); render(); });
+        el.breadcrumb.appendChild(btn);
+      }
+    });
+  }
+
+  function renderFolderRow(name, node) {
+    const row = document.createElement('button');
+    row.className = 'folder-row';
+    row.innerHTML = `<span class="emoji">📁</span><span class="name">${escapeHtml(name)}</span><span class="count">${countAll(node)}</span>`;
+    row.addEventListener('click', () => { currentPath = currentPath.concat(name); render(); });
+    return row;
+  }
+
+  function renderCard(file) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const link = linkFor(file.path);
+    card.innerHTML = `
+      <div class="thumb-wrap"><img src="${link}" alt="${escapeHtml(file.name)}" loading="lazy"></div>
+      <div class="meta">
+        <span class="filename">${escapeHtml(file.name)}</span>
+        <button class="copy-btn" type="button">Copiar enlace</button>
+      </div>
+    `;
+    card.querySelector('.copy-btn').addEventListener('click', (e) => copyLink(link, e.target));
+    return card;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function render() {
+    if (!fileTreeRoot) return;
+    renderBreadcrumb();
+    el.folderList.innerHTML = '';
+    el.grid.innerHTML = '';
+
+    if (searchQuery.trim()) {
+      const results = [];
+      searchAll(fileTreeRoot, normalize(searchQuery.trim()), [], results);
+      if (results.length === 0) {
+        showStatus('No se encontraron imágenes con ese nombre.');
+      } else {
+        hideStatus();
+        results
+          .sort((a, b) => a.path.localeCompare(b.path))
+          .forEach(file => el.grid.appendChild(renderCard(file)));
+      }
+      return;
+    }
+
+    const node = getNodeAtPath(fileTreeRoot, currentPath);
+    if (!node) { currentPath = []; return render(); }
+
+    const folderNames = Object.keys(node.folders).sort((a, b) => a.localeCompare(b));
+    const files = node.files.slice().sort((a, b) => a.name.localeCompare(b.name));
+
+    if (folderNames.length === 0 && files.length === 0) {
+      showStatus('Esta carpeta está vacía.');
+      return;
+    }
+    hideStatus();
+
+    folderNames.forEach(name => el.folderList.appendChild(renderFolderRow(name, node.folders[name])));
+    files.forEach(file => el.grid.appendChild(renderCard(file)));
+  }
+
+  // ---------- Copiar enlace ----------
+  let toastTimer = null;
+  function showToast(message) {
+    el.toast.textContent = message;
+    el.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1800);
+  }
+
+  async function copyLink(link) {
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast('Enlace copiado');
+  }
+
+  // ---------- Eventos ----------
+  let searchDebounce = null;
+  el.searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      searchQuery = e.target.value;
+      render();
+    }, 120);
+  });
+
+  el.refreshBtn.addEventListener('click', () => {
+    if (config) loadRepo();
+  });
+
+  // ---------- Arranque ----------
+  config = loadConfig();
+  if (!config) {
+    el.subtitle.textContent = 'Configura tu repositorio para empezar';
+    showStatus('Pulsa el icono ⚙ para indicar de dónde vienen las imágenes.');
+    openSettings();
+  } else {
+    loadRepo();
+  }
+})();
+</script>
+</body>
+</html>
